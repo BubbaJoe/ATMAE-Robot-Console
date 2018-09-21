@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ATMAE Robot Controller</title>
+
+  <script>
+    delete module.exports
+    const conn_data = require("./conn.json")
+    var imageNr = 0; // Serial number of current image
+
+    function videoConnected() {
+      $('#v-label').removeClass('label-danger')
+      $('#v-label').removeClass('label-warning')
+      $('#v-label').addClass('label-success')
+      $('#v-label')[0].innerHTML = "Video Connected"
+    }
+
+    function controllerConnected() {
+      $('#c-label').removeClass('label-danger')
+      $('#c-label').removeClass('label-warning')
+      $('#c-label').addClass('label-success')
+      $('#c-label')[0].innerHTML = "Controller Connected"
+    }
+
+    function robotConnected() {
+      $('#r-label').removeClass('label-danger')
+      $('#r-label').removeClass('label-warning')
+      $('#r-label').addClass('label-success')
+      $('#r-label')[0].innerHTML = "Robot Connected"
+    }
+
+    function videoDisconnected() {
+      $('#v-label').removeClass('label-success')
+      $('#v-label').removeClass('label-warning')
+      $('#v-label').addClass('label-danger')
+      $('#v-label')[0].innerHTML = "Video Disconnected"
+    }
+
+    function controllerDisconnected() {
+      $('#c-label').removeClass('label-success')
+      $('#c-label').removeClass('label-warning')
+      $('#c-label').addClass('label-danger')
+      $('#c-label')[0].innerHTML = "Controller Disconnected"
+    }
+
+    function robotDisconnected() {
+      $('#r-label').removeClass('label-success')
+      $('#r-label').removeClass('label-warning')
+      $('#r-label').addClass('label-danger')
+      $('#r-label')[0].innerHTML = "Robot Disconnected"
+    }
+
+    window.addEventListener("gamepadconnected", function(e) {
+      gp = e.gamepad
+      console.log("gamepad connected, index:%d,%s,%d buttons, %d axes",
+        gp.index, gp.id, gp.buttons.length, gp.axes.length)
+    })
+
+    window.addEventListener("gamepaddisconnected", function(e) {
+      gp = e.gamepad
+      console.log("gamepad connected, index:%d,%s", gp.index, gp.id)
+    })
+
+    function connectToRobot() {
+      conn = require("./conn.json")
+
+      let net = require('net'),
+      ip = conn.ROBOT_IP
+      port = conn.ROBOT_PORT;
+
+      var client = new net.Socket();
+
+      client.connect(port, ip, function() {
+        console.log(`Connected to ${ip}:${port}`)
+        client.write("0")
+        client.write("Console connected")
+        robotConnected()
+      });
+
+      client.on('data', function(data) {
+        // data recv'd from robot (err, components, etc)
+        console.log("DATA:", data + "")
+      });
+
+      client.on('close', function() {
+        robotDisconnected()
+        console.log('Connection closed');
+      });
+
+      return client
+    }
+
+    // Saves settings in a file
+    function saveSettings() {
+      var fs = require('fs')
+      json = {
+        ROBOT_IP:$('[name="raddr"]')[0].value,
+        ROBOT_PORT:$('[name="rport"]')[0].value,
+        VIDEO_PORT:$('[name="vport"]')[0].value,
+        GAMEPAD:$('[name="gp"]')[0].value
+      }
+      fs.writeFile("conn.json", JSON.stringify(json),() => {
+        console.log("saved", json)
+        updateSettings()
+      })
+    }
+
+    // Gets data from files and updates the variables
+    function updateSettings() {
+      conn = require("./conn.json")
+      $('[name="raddr"]')[0].value = conn.ROBOT_IP
+      $('[name="rport"]')[0].value = conn.ROBOT_PORT
+      $('[name="vport"]')[0].value = conn.VIDEO_PORT
+      $('[name="gp"]')[0].value = conn.GAMEPAD
+      console.log("updated", conn)
+    }
+    
+    function createImageLayer(w,h) {
+      updateSettings()
+      videoConnected()
+      let img = new Image(),
+      num = 0,
+      raddr = $('[name="raddr"]')[0].value,
+      vport = $('[name="vport"]')[0].value;
+      img.id = "stream_images"
+      img.style.position = "absolute";
+      img.height = h;
+      img.width = w;
+      img.src = `http://${raddr}:${vport}/stream.mjpeg`;
+      img.onerror = function(){
+        if(this.src != './assets/novideo.svg') {
+          this.src='./assets/novideo.svg';
+          videoDisconnected()
+        } else this.onerror = null;
+      };
+      var source = new EventSource(img.src);
+      source.addEventListener('image', function (e) {
+        img.src = 'data:image/jpeg;base64,' + e.data;
+      });
+      let s = document.getElementById("stream");
+      s.style = "height:"+h+"px;width:"+w+"px;"
+      s.insertBefore(img, s.firstChild);
+    }
+  </script>
+  <!-- Scripts -->
+  <script src="./assets/jquery-3.3.1.js"></script>
+  <script src="./assets/bootstrap.min.js"></script>
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <link rel="stylesheet" href="./assets/styles.css">
+</head>
+
+<body onload="createImageLayer(600,400)">
+  <div id="base">
+    <div id="stream">
+
+    </div>
+    <h3 id="labels">
+      <span id="v-label" onclick="$('#stream_images')[0].src=$('#stream_images')[0].src" class="label label-warning">Video Loading</span> &nbsp;
+      <span id="c-label" onclick="checkController()" class="label label-warning">Controller Loading</span> &nbsp;
+      <span id="r-label" onclick="connectToRobot()" class="label label-warning">Robot Loading</span>
+    </h3>
+  </div>
+  <div id="modal">
+    <button id="settings" type="button" onclick="updateSettings()" class="btn btn-info btn-lg" data-toggle="modal" data-target="#myModal">Connection Settings</button>
+    <div class="modal fade" id="myModal" role="dialog">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" onclick="updateSettings()" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">Connection Settings</h4>
+          </div>
+          <div class="modal-body">
+              Robot Host/IP: <input class="form-control" type="text" name="raddr">
+              Robot Port: <input value="8080" class="form-control" type="text" name="rport">
+              <hr>
+              Video Port: <input value="8888" class="form-control" type="text" name="vport">
+              <hr>
+              <div>
+                Select Gamepad: <select class="form-control" name="gp"></select>
+              </div>
+              <script>
+                function checkController() {
+                  let select = $('[name="gp"]')[0]
+                  var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads : []);
+                  let defaultgp = null
+                  for (var i = 0; i < gamepads.length; i++) { 
+                    var gp = gamepads[i];
+                    if (gp) {
+                      nogp = id
+                      opt = document.createElement('option')
+                      opt.value = gp.id;
+                      opt.innerHTML = "Gamepad "+i
+                      select.append(opt)
+                    }
+                  }
+                  if(defaultgp) {
+                    opt = document.createElement('option')
+                    opt.value = defaultgp
+                    opt.innerHTML = "Default"
+                    select.prepend(opt)
+                    controllerConnected()
+                  } else {
+                    opt = document.createElement('option')
+                    opt.innerHTML = "No Gamepads"
+                    select.prepend(opt)
+                    controllerDisconnected()
+                  }
+                }
+                checkController()
+                client = connectToRobot()
+              </script>
+          </div>
+
+          <div class="modal-footer">
+            <input type="button" value="Cancel" onclick="updateSettings()" class="btn btn-default btn-danger pull-left" data-dismiss="modal"/>
+            <input type="button" value="Save" onclick="saveSettings()" class="btn btn-default btn-success pull-right" data-dismiss="modal"/>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

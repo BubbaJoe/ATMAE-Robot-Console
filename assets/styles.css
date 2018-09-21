@@ -1,0 +1,40 @@
+html, body, .container-fluid {
+  height: 100%;
+  background-color: #111;
+  overflow: hidden;
+}
+
+#drag {
+  -webkit-app-region: drag;
+}
+
+#stream {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#base {
+  display: table;
+  margin: 0 auto;
+  margin-top: 13px;
+}
+
+#labels {
+  padding-left: 12px;
+}
+
+#modal {
+  margin-top: 15px;
+}
+
+#settings {
+  margin: auto;
+  display: flex; 
+  justify-content: center;
+}
+
+#title {
+  color: #aaa;
+  text-align: center;
+}

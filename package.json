@@ -1,0 +1,16 @@
+{
+  "name": "atmae-robot-console",
+  "version": "1.0.2",
+  "description": "Connects to the ATMAE ECU Robot of 2018-????",
+  "main": "app.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^1.4.12"
+  },
+  "dependencies": {
+    "electron-packager": "^12.1.2"
+  }
+}
